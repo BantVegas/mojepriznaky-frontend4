@@ -345,144 +345,80 @@ window.onclick = function(event) {
 
 </script>
 <script>
-    async function sendSymptoms() {
-      const usageKey = "aiUsageCount";
-      const user = JSON.parse(sessionStorage.getItem("user")) || {};
-      const role = user?.plan || "PACIENT";
-      let usageCount = parseInt(localStorage.getItem(usageKey)) || 0;
-    
-      if (role === "PACIENT" && usageCount >= 2) {
-        alert("Ako PACIENT môžete AI použiť maximálne 2-krát. Pre viac analýz sa zaregistrujte ako PREMIUM.");
-        return;
-      }
-    
-      const resultBox = document.getElementById("result");
-      const textInput = document.getElementById("symptomText").value.trim();
-      const imageFile = document.getElementById("imageInput").files[0];
-    
-      resultBox.innerText = "🔍 Spracovávam vstup...";
-      let finalText = textInput;
-    
-      if (imageFile) {
-        const formData = new FormData();
-        formData.append("file", imageFile);
-        try {
-          const ocrRes = await fetch(`${API_BASE}/api/ocr/upload`, {
-            method: "POST",
-            body: formData
-          });
-          const ocrData = await ocrRes.json();
-          finalText += "\n" + (ocrData.text || "");
-        } catch (err) {
-          resultBox.innerText = "❌ Chyba pri načítaní obrázka.";
-          return;
-        }
-      }
-    
-      if (!finalText.trim()) {
-        resultBox.innerText = "⚠️ Zadaj text alebo nahraj obrázok.";
-        return;
-      }
-    
-      try {
-        const res = await fetch(`${API_BASE}/api/analyze`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + sessionStorage.getItem("token")
-          },
-          body: JSON.stringify({ text: finalText })
-        });
-    
-        if (!res.ok) {
-          const errorText = await res.text();
-          resultBox.innerText = `❌ Chyba: ${res.status} – ${errorText}`;
-          return;
-        }
-    
-        const aiData = await res.json();
-        resultBox.innerText = aiData.result || "⚠️ AI neposkytla odpoveď.";
-    
-        if (role === "PACIENT") {
-          localStorage.setItem(usageKey, usageCount + 1);
-        }
-    
-        // Uložiť do histórie
-        const timestamp = new Date().toLocaleString("sk-SK");
-        const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
-        history.unshift({ text: finalText, result: aiData.result, timestamp });
-        localStorage.setItem("analysisHistory", JSON.stringify(history));
-    
-      } catch (err) {
-        resultBox.innerText = "❌ Chyba pri AI analýze.";
-        console.error(err);
-      }
-    }
-    
+async function sendSymptoms() {
+  const usageKey = "aiUsageCount";
+  const user = JSON.parse(sessionStorage.getItem("user")) || {};
+  const role = user?.plan || "PACIENT";
+  let usageCount = parseInt(localStorage.getItem(usageKey)) || 0;
 
-  function sendToDoctor() {
-    const result = document.getElementById("result").innerText;
-    const subject = encodeURIComponent("Moje príznaky – žiadosť o posúdenie");
-    const body = encodeURIComponent("Dobrý deň,\n\nchcel by som konzultovať nasledovné príznaky:\n\n" + result);
-    window.location.href = `mailto:lekar@priklad.sk?subject=${subject}&body=${body}`;
+  if (role === "PACIENT" && usageCount >= 2) {
+    alert("Ako PACIENT môžete AI použiť maximálne 2-krát. Pre viac analýz sa zaregistrujte ako PREMIUM.");
+    return;
   }
 
-  function showHistory() {
-    const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
-    if (history.length === 0) {
-      alert("Zatiaľ nie je uložená žiadna história.");
+  const resultBox = document.getElementById("result");
+  const textInput = document.getElementById("symptomText").value.trim();
+  const imageFile = document.getElementById("imageInput").files[0];
+
+  resultBox.innerText = "🔍 Spracovávam vstup...";
+  let finalText = textInput;
+
+  if (imageFile) {
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    try {
+      const ocrRes = await fetch(`${API_BASE}/api/ocr/upload`, {
+        method: "POST",
+        body: formData
+      });
+      const ocrData = await ocrRes.json();
+      finalText += "\n" + (ocrData.text || "");
+    } catch (err) {
+      resultBox.innerText = "❌ Chyba pri načítaní obrázka.";
       return;
     }
-    let msg = "🕘 História AI výstupov:\n\n";
-    history.forEach((entry, i) => {
-      msg += `${i + 1}. ${entry.timestamp}\n→ ${entry.result.substring(0, 100)}...\n\n`;
+  }
+
+  if (!finalText.trim()) {
+    resultBox.innerText = "⚠️ Zadaj text alebo nahraj obrázok";
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/analyze`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + sessionStorage.getItem("token")
+      },
+      body: JSON.stringify({ text: finalText })
     });
-    alert(msg);
-  }
 
-  function setChildMode() {
-    document.getElementById("symptomText").placeholder = "Popíšte príznaky dieťaťa (napr. horúčka, kašeľ, únava...)";
-  }
-
-  function openEmergencyMap() {
-    window.open("https://www.google.com/maps/search/pohotovosť+v+okolí", "_blank");
-  }
-
-  function openDentalMap() {
-    window.open("https://www.google.com/maps/search/zubná+pohotovosť+v+okolí", "_blank");
-  }
-</script>
-<script>
-  async function startPremiumCheckout() {
-    try {
-      const token = sessionStorage.getItem("token");
-      if (!token) {
-        alert("Najprv sa prosím prihláste.");
-        return;
-      }
-  
-      const res = await fetch(`${API_BASE}/api/payment/create-checkout-session`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        }
-      });
-  
-      if (!res.ok) {
-        const errText = await res.text();
-        alert("❌ Chyba pri spúšťaní platby: " + errText);
-        return;
-      }
-  
-      const checkoutUrl = await res.text(); // backend vracia plain URL
-      window.location.href = checkoutUrl;
-    } catch (error) {
-      console.error("Stripe Checkout error:", error);
-      alert("❌ Nepodarilo sa otvoriť platobnú bránu.");
+    if (!res.ok) {
+      const errorText = await res.text();
+      resultBox.innerText = `❌ Chyba: ${res.status} – ${errorText}`;
+      return;
     }
+
+    const aiData = await res.json();
+    resultBox.innerText = aiData.result || "⚠️ AI neposkytla odpoveď.";
+
+    if (role === "PACIENT") {
+      localStorage.setItem(usageKey, usageCount + 1);
+    }
+
+    // Uložiť do histórie
+    const timestamp = new Date().toLocaleString("sk-SK");
+    const history = JSON.parse(localStorage.getItem("analysisHistory") || "[]");
+    history.unshift({ text: finalText, result: aiData.result, timestamp });
+    localStorage.setItem("analysisHistory", JSON.stringify(history));
+
+  } catch (err) {
+    resultBox.innerText = "❌ Chyba pri AI analýze.";
+    console.error(err);
   }
-  </script>
+}
+</script>
   
 </body>
 </html>
