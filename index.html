@@ -189,7 +189,7 @@
 </div>
 
 <div class="container">
-  <h1 style="text-align:center;">AI Symptom Checker</h1>
+  <h1 style="text-align:center;">Najnovšia AI Symptom Kontrola</h1>
   <div style="display: flex; gap: 2rem; align-items: flex-start;">
     <div class="sidebar">
       <button class="sidebar-button" onclick="sendToDoctor()">📤 Poslať doktorovi</button>
@@ -197,6 +197,8 @@
       <button class="sidebar-button" onclick="setChildMode()">👶 Moje dieťa</button>
       <button class="sidebar-button" onclick="openEmergencyMap()">📍 Najbližšia pohotovosť</button>
       <button class="sidebar-button" onclick="openDentalMap()">🦷 Zubná pohotovosť</button>
+      <a href="#" class="premium-btn" onclick="startPremiumCheckout()">PACIENT PREMIUM</a>
+
     </div>
     <div style="flex: 1;">
       <div class="card">
@@ -221,7 +223,7 @@
 <footer class="footer">
   <p>&copy; 2025 MojePríznaky.sk – Všetky práva vyhradené.</p>
   <p>Táto aplikácia neposkytuje lekársku diagnózu. V prípade vážneho stavu kontaktujte svojho lekára alebo tiesňovú linku.</p>
-  <p>Kontakt: <a href="mailto:podpora@mojepriznaky.sk" style="color:white;text-decoration:underline;">podpora@mojepriznaky.sk</a></p>
+  <p>Kontakt: <a href="mailto:mojepriznaky@gmail.com" style="color:white;text-decoration:underline;">mojepriznaky@gmail.com</a></p>
 </footer>
 
 <!-- Login Modal -->
@@ -450,5 +452,37 @@ window.onclick = function(event) {
     window.open("https://www.google.com/maps/search/zubná+pohotovosť+v+okolí", "_blank");
   }
 </script>
+<script>
+  async function startPremiumCheckout() {
+    try {
+      const jwt = sessionStorage.getItem("jwt");
+      if (!jwt) {
+        alert("Najprv sa prosím prihláste.");
+        return;
+      }
+  
+      const res = await fetch(`${API_BASE}/api/payment/create-checkout-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + jwt
+        }
+      });
+  
+      if (!res.ok) {
+        const errText = await res.text();
+        alert("❌ Chyba pri spúšťaní platby: " + errText);
+        return;
+      }
+  
+      const checkoutUrl = await res.text(); // backend vracia plain URL
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      console.error("Stripe Checkout error:", error);
+      alert("❌ Nepodarilo sa otvoriť platobnú bránu.");
+    }
+  }
+  </script>
+  
 </body>
 </html>
